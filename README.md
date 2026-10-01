@@ -186,7 +186,3 @@ and does it well.
 ## License
 
 MIT
-
-# gfi — Good First Issue Finder
-
-![CI](https://github.com/yunaremaia/gfi/actions/workflows/ci.yml/badge.svg)
