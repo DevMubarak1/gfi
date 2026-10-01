@@ -3,6 +3,7 @@
 [![CI](https://github.com/yunaremaia/gfi/actions/workflows/ci.yml/badge.svg)](https://github.com/yunaremaia/gfi/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/yunaremaia/gfi/blob/main/LICENSE)
+![Stars](https://img.shields.io/github/stars/yunaremaia/gfi)
 
 Search and filter GitHub issues for contributors. Built for autonomous workflows and humans alike.
 
@@ -168,6 +169,19 @@ gfi search --language python --stars-min 100 --csv > issues.csv
 pip install -e ".[dev]"
 pytest
 ```
+
+
+If this tool is useful to you, a star helps other people find it.
+
+## Related tools
+
+- **[oss-contribution-finder](https://github.com/yunaremaia/oss-contribution-finder)** — find OSS projects ready to contribute to
+- **[aipr](https://github.com/yunaremaia/aipr)** — pre-screen repos for AI contribution policy
+- **[driftcheck](https://github.com/yunaremaia/driftcheck)** — detect version drift between docs and toolchain files
+- **[tool-call-retry](https://github.com/yunaremaia/tool-call-retry)** — retry failed tool calls with backoff
+
+Part of a family of focused, single-purpose developer tools — each one does one thing
+and does it well.
 
 ## License
 
