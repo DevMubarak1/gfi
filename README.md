@@ -163,6 +163,22 @@ imports and data pipelines:
 gfi search --language python --stars-min 100 --csv > issues.csv
 ```
 
+`gfi feed` also supports `--csv`.
+
+### Machine-readable output is always clean
+
+With `--json-output` or `--csv`, **stdout carries the payload and nothing else**.
+Progress spinners, status text, and "no results" messages go to stderr, so the
+documented pipelines above work without any filtering:
+
+- `--json-output` always prints a valid JSON array — an empty result set is `[]`,
+  never a sentence.
+- `--csv` always prints a valid table — an empty result set is just the header
+  row, so readers get zero data rows rather than a parse error.
+
+This means `gfi ... --json-output | jq` and `gfi ... --csv > out.csv` are safe to
+use in cron jobs, CI steps, and pipelines without `2>/dev/null` or `grep`.
+
 ## Development
 
 ```bash

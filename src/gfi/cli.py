@@ -15,6 +15,9 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from gfi.search import GitHubSearcher, Issue
 
 console = Console()
+# Human-facing notices (spinners, "no results" prose) go here whenever stdout
+# carries a machine-readable payload, so a piped consumer never sees them.
+err_console = Console(stderr=True)
 
 CSV_COLUMNS = (
     "number",
@@ -43,6 +46,22 @@ def _write_csv(issues: list[Issue]) -> None:
             issue.comments,
             issue.stars,
         ))
+
+
+def _notify_empty(json_out: bool, csv_out: bool, message: str) -> None:
+    """Report an empty result set without corrupting machine-readable stdout.
+
+    A caller parsing JSON or CSV needs a well-formed empty document -- that is
+    the most common outcome in practice, and a bare sentence on stdout is
+    unparseable at exactly the moment a script most needs a valid answer. So
+    the payload goes to stdout and the prose is diverted to stderr.
+    """
+    machine = json_out or csv_out
+    if json_out:
+        click.echo(json.dumps([], indent=2))
+    elif csv_out:
+        _write_csv([])
+    (err_console if machine else console).print(f"[yellow]{message}[/yellow]")
 
 
 def _format_date(date_str: str) -> str:
@@ -128,8 +147,8 @@ def search(
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        console=console,
-        disable=csv_out,
+        console=err_console if (json_out or csv_out) else console,
+        disable=json_out or csv_out,
     ) as progress:
         task = progress.add_task("Searching GitHub...", total=None)
 
@@ -155,7 +174,7 @@ def search(
         progress.update(task, completed=True)
 
     if not results:
-        console.print("[yellow]No issues found matching criteria.[/yellow]")
+        _notify_empty(json_out, csv_out, "No issues found matching criteria.")
         return
 
     if json_out:
@@ -217,8 +236,8 @@ def repo(repo, limit, json_out, csv_out):
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        console=console,
-        disable=csv_out,
+        console=err_console if (json_out or csv_out) else console,
+        disable=json_out or csv_out,
     ) as progress:
         task = progress.add_task(f"Searching {repo}...", total=None)
 
@@ -230,7 +249,9 @@ def repo(repo, limit, json_out, csv_out):
         progress.update(task, completed=True)
 
     if not results:
-        console.print(f"[yellow]No good first issues found in {repo}.[/yellow]")
+        _notify_empty(
+            json_out, csv_out, f"No good first issues found in {repo}."
+        )
         return
 
     if json_out:
@@ -296,8 +317,8 @@ def trending(limit, json_out, csv_out):
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        console=console,
-        disable=csv_out,
+        console=err_console if (json_out or csv_out) else console,
+        disable=json_out or csv_out,
     ) as progress:
         task = progress.add_task("Scanning trending repos...", total=len(repos))
 
@@ -308,7 +329,7 @@ def trending(limit, json_out, csv_out):
             progress.advance(task)
 
     if not all_issues:
-        console.print("[yellow]No trending issues found.[/yellow]")
+        _notify_empty(json_out, csv_out, "No trending issues found.")
         return
 
     # Sort by stars descending
@@ -364,8 +385,8 @@ def feed(limit, json_out, csv_out):
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        console=console,
-        disable=csv_out,
+        console=err_console if (json_out or csv_out) else console,
+        disable=json_out or csv_out,
     ) as progress:
         task = progress.add_task("Fetching feed...", total=None)
 
@@ -377,7 +398,7 @@ def feed(limit, json_out, csv_out):
         progress.update(task, completed=True)
 
     if not results:
-        console.print("[yellow]No new issues. Try again later![/yellow]")
+        _notify_empty(json_out, csv_out, "No new issues. Try again later!")
         return
 
     if json_out:
