@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# gh-gfi — GitHub CLI extension entry point (script extension).
+#
+# `gh extension install yunaremaia/gfi` clones this repository and looks for an
+# executable named `gh-<extension-name>` in the repository root. This file is
+# that executable. Without it `gh gfi` fails with:
+#
+#     failed to run extension: fork/exec .../gh-gfi: no such file or directory
+#
+# The script prefers an already-installed `gfi` console script (pip install) and
+# otherwise falls back to running the module straight from the checkout, so the
+# extension works both from a release and from a local `gh extension install .`.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if command -v gfi > /dev/null 2>&1; then
+  exec gfi "$@"
+fi
+
+if command -v python3 > /dev/null 2>&1; then
+  PYTHON="${PYTHON:-python3}"
+else
+  PYTHON="${PYTHON:-python}"
+fi
+
+# Run the extension module out of this checkout without requiring an install.
+exec env PYTHONPATH="$SCRIPT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" \
+  "$PYTHON" -m gfi "$@"

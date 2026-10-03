@@ -23,27 +23,25 @@ pip install -e .
 
 ### GitHub CLI Extension (gh gfi)
 
-You can also use gfi as a GitHub CLI extension:
+Install gfi as a GitHub CLI extension and run it as `gh gfi`:
 
 ```bash
-# Install the package
-pip install git+https://github.com/yunaremaia/gfi.git
+gh extension install yunaremaia/gfi
 
-# The gh-gfi wrapper is installed as a script
-# Add ~/.local/bin to PATH if needed
-export PATH="$HOME/.local/bin:$PATH"
-
-# Run via gh CLI
 gh gfi search --limit 10
 gh gfi trending
 gh gfi feed
 ```
 
-Or run the install script:
+If you already have gfi installed via pip, the `gh-gfi` console script also works
+on its own, without `gh`:
 
 ```bash
-./install-gh-extension.sh
+pip install git+https://github.com/yunaremaia/gfi.git
+gh-gfi search --limit 10
 ```
+
+See [gh-extensions.md](gh-extensions.md) for details.
 
 ## Features
 
