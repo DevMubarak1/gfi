@@ -74,7 +74,9 @@ def test_gh_extension_root_script_runs():
     """The root script extension must actually invoke the CLI.
 
     Runs it in a subprocess with an isolated PYTHONPATH so it exercises the
-    checkout directly instead of whatever `gfi` happens to be on PATH.
+    checkout directly instead of whatever `gfi` happens to be on PATH. PYTHON is
+    pinned to the running interpreter so the result does not depend on which
+    python3 happens to be first on PATH.
     """
     result = subprocess.run(
         [str(REPO_ROOT / "gh-gfi"), "--help"],
@@ -82,6 +84,7 @@ def test_gh_extension_root_script_runs():
         text=True,
         timeout=30,
         cwd=REPO_ROOT,
+        env={**os.environ, "PYTHON": sys.executable},
     )
     assert result.returncode == 0, f"gh-gfi --help failed: {result.stderr}"
     assert "gh gfi" in result.stdout, f"unexpected help output: {result.stdout}"
