@@ -50,3 +50,49 @@ jobs:
       # with a blanket `# ruff: noqa`, which would defeat the point of this gate.
       - name: Lint with ruff
         run: ruff check .
+
+  # Issue #30 asked for a CI check that the gh extension builds. A build here
+  # means "gh can actually discover and execute it": gh clones the repo and
+  # looks for an executable named `gh-<name>` in the repository root, so a
+  # missing or non-executable `gh-gfi` produces an extension that installs and
+  # then fails at run time with a fork/exec error. This job installs the
+  # extension from the checkout and runs it.
+  extension:
+    name: gh extension
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Install gfi with dev dependencies
+        run: pip install -e ".[dev]"
+
+      # A checkout loses the executable bit only in unusual cases, but this is
+      # the one property the extension cannot work without, so assert it
+      # explicitly rather than discovering it as a run-time fork/exec error.
+      - name: Check gh-gfi root script is executable
+        run: test -x ./gh-gfi
+
+      # gh derives the extension name from the directory, and for a script
+      # extension it requires a checkout named `gh-<name>` containing a
+      # `gh-<name>` executable. Clone into that name to reproduce exactly what
+      # `gh extension install yunaremaia/gfi` does, then install from inside
+      # the checkout: `gh extension install` takes `.` for a local repository,
+      # not an absolute path.
+      - name: Install the extension from a gh-named checkout
+        run: |
+          git clone --depth 1 . "$RUNNER_TEMP/gh-gfi"
+          cd "$RUNNER_TEMP/gh-gfi"
+          gh extension install --force .
+
+      - name: Run the extension
+        run: gh gfi --help
+
+      # Covers the second entry point too: the console script installed by pip.
+      - name: Run the installed console script
+        run: gh-gfi --help

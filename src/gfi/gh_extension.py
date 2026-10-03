@@ -24,7 +24,9 @@ def main():
     else:
         sys.argv = ["gfi"] + args
 
-    cli()
+    # Pin the program name so help/usage reads "gh gfi" instead of whatever
+    # sys.argv[0] happens to be (e.g. "python -m gfi.gfi").
+    cli(prog_name="gh gfi")
 
 
 if __name__ == "__main__":
