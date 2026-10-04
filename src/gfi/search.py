@@ -23,22 +23,17 @@ def _safe_repo_path(repo: str) -> str:
     return "/".join(quote(seg, safe="") for seg in repo.split("/"))
 
 
-def quote_search_value(value: str) -> str:
-    """Quote a user-supplied value for use as a GitHub search qualifier value.
-
-    Search terms are passed to GitHub as a `gh search issues` argument list, so
-    percent-encoding is wrong here (gh would search for a literal ``%20``).
-    What the search parser needs is a quoted value with its own backslashes and
-    double quotes escaped, otherwise a label like ``needs "urgent"`` closes the
-    quote early and the remaining words are parsed as new qualifiers.
-    """
-    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-    return f'"{escaped}"'
-
-
 def search_qualifier(name: str, value: str) -> str:
-    """Build a single ``name:"value"`` search qualifier."""
-    return f"{name}:{quote_search_value(value)}"
+    """Build a single ``name:value`` search qualifier.
+
+    The value is deliberately NOT quoted here. Every search term already reaches
+    ``gh search issues`` as its own argv element, and gh quotes and escapes those
+    terms itself when it composes the REST ``q=`` parameter. Escaping here as
+    well double-quoted the value: under ``GH_DEBUG=api`` GitHub received the
+    literal ``\\"good first issue\\"``, which matches no real label, so every
+    search returned zero results while still exiting 0 (#82).
+    """
+    return f"{name}:{value}"
 
 
 @dataclass

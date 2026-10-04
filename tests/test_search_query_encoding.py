@@ -58,7 +58,8 @@ class TestLabelQualifierEncoding:
         ))
 
         terms = _search_query_args(mock_run)
-        assert 'label:"good first issue"' in terms
+        # gh adds the quotes when it builds q=, so the value goes in bare.
+        assert "label:good first issue" in terms
         # The hyphen-mangling workaround silently searches a different label.
         assert "label:good-first-issue" not in terms
 
@@ -74,9 +75,11 @@ class TestLabelQualifierEncoding:
         terms = _search_query_args(mock_run)
         assert len([t for t in terms if t.startswith("label:")]) == 1
         label_term = next(t for t in terms if t.startswith("label:"))
-        # Exactly one pair of unescaped delimiters: the injected quote is escaped.
-        assert label_term.count('"') == 4  # "needs \"urgent\" triage"
-        assert '\\"urgent\\"' in label_term
+        # The embedded quotes are data, kept as one argv element: gh escapes
+        # them when it composes q=, so adding our own backslashes would
+        # double-escape and match nothing (#82).
+        assert label_term == 'label:needs "urgent" triage'
+        assert "\\" not in label_term
         assert "state:open" in terms
 
     @patch("gfi.search.subprocess.run")
@@ -89,7 +92,7 @@ class TestLabelQualifierEncoding:
         ))
 
         terms = _search_query_args(mock_run)
-        assert 'label:"type: bug (fix|chore)"' in terms
+        assert "label:type: bug (fix|chore)" in terms
 
     @patch("gfi.search.subprocess.run")
     def test_repo_search_labels_label_the_same_way(self, mock_run, searcher):
@@ -102,8 +105,48 @@ class TestLabelQualifierEncoding:
         ))
 
         terms = _search_query_args(mock_run)
-        assert 'label:"good first issue"' in terms
+        assert "label:good first issue" in terms
         assert "label:good-first-issue" not in terms
+
+
+class TestNoDoubleEscaping:
+    """gh quotes argv terms itself; adding our own quotes breaks the query.
+
+    Regression for #82, where every search silently returned zero results with
+    exit code 0. Both search paths route through ``search_qualifier``, so one
+    test covers the shared choke point and its two callers.
+    """
+
+    @patch("gfi.search.subprocess.run")
+    def test_search_terms_carry_no_added_quotes_or_backslashes(
+        self, mock_run, searcher
+    ):
+        mock_run.return_value = _gh_result(stdout="[]")
+
+        list(searcher._search_global(
+            "query", 'needs "urgent" triage', "open", "Python", None, True, None,
+            max_age_days=None, repo_max_age_days=None, limit=20,
+        ))
+        global_terms = _search_query_args(mock_run)
+
+        list(searcher._search_repo(
+            "owner/repo", "query", "good first issue", "open", None,
+            None, True, None,
+            max_age_days=None, repo_max_age_days=None, limit=20,
+        ))
+        repo_terms = _search_query_args(mock_run)
+
+        # gh quotes and escapes each argv term when it builds q=, so our value
+        # must go in bare. Pre-quoting made GitHub receive the literal
+        # \"good first issue\", which matches no label.
+        assert "label:needs \"urgent\" triage" in global_terms
+        assert "language:Python" in global_terms
+        assert "label:good first issue" in repo_terms
+        for terms in (global_terms, repo_terms):
+            assert not any("\\" in t for t in terms), (
+                f"gh already escapes argv terms; a backslash here means we are "
+                f"double-escaping: {terms}"
+            )
 
 
 class TestFreeTextQueryIntegrity:
