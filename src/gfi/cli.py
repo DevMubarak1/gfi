@@ -31,8 +31,19 @@ CSV_COLUMNS = (
 
 
 def _write_csv(issues: list[Issue]) -> None:
-    """Write issues as CSV to standard output."""
-    writer = csv.writer(sys.stdout, lineterminator="\n")
+    """Write issues as CSV to standard output.
+
+    QUOTE_ALL is load-bearing, not decoration. With QUOTE_MINIMAL the writer
+    quotes a field only when it holds a delimiter, a quotechar, or a character
+    from ``lineterminator`` -- and that is ``"\\n"`` here. A title carrying a
+    bare ``\\r`` (or any other character the reader treats as a record break)
+    therefore lands in the output *unquoted* and splits one row into two. It is
+    version-dependent: CPython 3.11 widened the quoting rule, so the same
+    title is quoted on 3.11+ and silently corrupts the CSV on the 3.10 floor
+    this package declares in pyproject.toml. Quoting every field is valid CSV
+    on every supported version and needs no per-version branch.
+    """
+    writer = csv.writer(sys.stdout, lineterminator="\n", quoting=csv.QUOTE_ALL)
     writer.writerow(CSV_COLUMNS)
     for issue in issues:
         writer.writerow((

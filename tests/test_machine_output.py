@@ -156,6 +156,39 @@ class TestCsvOutputIsPureCsv:
         assert message not in stdout
         assert message in stderr
 
+    def test_record_break_in_a_value_does_not_split_the_row(self, monkeypatch):
+        """A bare CR in a value must not split one row into two.
+
+        QUOTE_MINIMAL only quotes a field holding a character from
+        ``lineterminator`` ("\\n" here), so on the declared 3.10 floor a
+        ``\\r`` reached the output unquoted and the reader broke the record
+        in two. 3.11 widened the rule, so this only ever failed on one side
+        of the matrix -- assert the invariant directly instead.
+        """
+        make_fake_searcher(
+            monkeypatch,
+            [
+                Issue(
+                    number=7,
+                    title="carriage\rreturn in the title",
+                    repo="owner/project",
+                    url="https://github.com/owner/project/issues/7",
+                    state="open",
+                    labels=["good first issue"],
+                    created_at="2026-09-01T00:00:00Z",
+                    stars=1,
+                    comments=0,
+                ),
+            ],
+        )
+
+        stdout, _ = invoke(["search", "--csv"])
+
+        rows = list(csv.reader(io.StringIO(stdout)))
+        assert len(rows) == 2, f"row was split by an embedded CR: {rows!r}"
+        assert rows[0] == list(CSV_COLUMNS)
+        assert rows[1][1] == "carriage\rreturn in the title"
+
 
 class TestHumanOutputUnchanged:
     """Without a machine flag, the human-facing path keeps printing to stdout."""
