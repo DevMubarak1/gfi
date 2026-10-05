@@ -30,6 +30,19 @@ CSV_COLUMNS = (
 )
 
 
+def _csv_safe(value: object) -> object:
+    """Neutralise spreadsheet formula injection payloads (CWE-1236).
+
+    Values whose first character is an active formula trigger or whitespace
+    separator (=, +, -, @, \\t, \\r) are prefixed with a single quote (') so
+    spreadsheet applications (Excel, LibreOffice, Google Sheets) treat the
+    cell strictly as text instead of evaluating formula commands.
+    """
+    if isinstance(value, str) and value[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + value
+    return value
+
+
 def _write_csv(issues: list[Issue]) -> None:
     """Write issues as CSV to standard output.
 
@@ -46,7 +59,7 @@ def _write_csv(issues: list[Issue]) -> None:
     writer = csv.writer(sys.stdout, lineterminator="\n", quoting=csv.QUOTE_ALL)
     writer.writerow(CSV_COLUMNS)
     for issue in issues:
-        writer.writerow((
+        row = (
             issue.number,
             issue.title,
             issue.repo,
@@ -55,7 +68,8 @@ def _write_csv(issues: list[Issue]) -> None:
             issue.created_at,
             issue.comments,
             issue.stars,
-        ))
+        )
+        writer.writerow(tuple(_csv_safe(col) for col in row))
 
 
 def _notify_empty(json_out: bool, csv_out: bool, message: str) -> None:
